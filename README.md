@@ -8,6 +8,31 @@ Access composer and Symfony's bin/console tool remotely without terminal/SSH acc
 #### Installation
 Just copy (or `git clone`) the [symfony-shell.php](https://github.com/eugenmihailescu/symfony-shell/blob/master/symfony-shell.php) to your remote web document location (eg. /public_html/).
 
+#### How to use
+Once you wrote an extension PHP script (see below) all you need to to is to run that script either at a CLI terminal or on your browser.
+
+Example:
+
+```bash
+php /path/to/extension/symfony-post-deploy.php
+``` 
+or on the browser: 
+> http://localhost/symfony-post-deploy.php
+
+When you run the extension via the CLI terminal the `symfony-shell` assumes the [COMPOSER_HOME](https://getcomposer.org/doc/03-cli.md#composer-home) to be located into your home directory, the `.composer` subdirectory. 
+
+What is *your* home directory when you run this script on the browser? Well that's the web server daemon user home directory (eg. `apache`), which probably does not exist and nor the `.composer` subdirectory. In that case you can pass the Composer's home directory value by sending along the URL a special request parameter called `composer_home` like this:
+> http://localhost/symfony-post-deploy.php?`composer_home`=url-encoded-composer-home-dir
+
+By `url-encoded-composer-home-dir` I mean a string that encodes all non-alphanumeric characters ([read more here](http://php.net/manual/en/function.urlencode.php)).
+
+Example:
+> The encoded string *`/`home`/`eugen`/`.composer* should look like this:
+>
+> *`%2F`home`%2F`eugen`%2F`.composer*
+> 
+> where all non-alphanumeric ASCII where encoded to HEXA prefixed by `%`.
+
 #### Extension
 In order to tell the Composer or Symfony what to do you have to write an extension. 
 
@@ -149,5 +174,7 @@ SymfonyShell\run ($ignore_errors);
 
 ?>
 ```
+
+[![IMAGE ALT TEXT](http://img.youtube.com/vi/9lH_yw6mOfQ/0.jpg)](https://www.youtube.com/watch?v=9lH_yw6mOfQ "symfony-shell")
 
 See the [symfony-post-deploy.php](https://github.com/eugenmihailescu/symfony-shell/blob/master/symfony-post-deploy.php) sample hook extension.

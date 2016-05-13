@@ -165,6 +165,8 @@ function run_composer($composer_cmd, $composer_args = array(), $return_output = 
 	);
 	$home = getenv ( 'HOME' ) . '/.composer';
 	
+	is_dir ( $home ) || (isset ( $_REQUEST ['composer_home'] ) && $home = $_REQUEST ['composer_home']);
+	
 	$env = array (
 			'COMPOSER_HOME' => is_dir ( $home ) ? $home : __DIR__ 
 	);
