@@ -26,7 +26,10 @@ $_VERBOSITY_ = true;
  *
  * @var string $_COMPOSER_BIN_
  */
-$_COMPOSER_BIN_ = __DIR__ . '/composer.phar';
+$_COMPOSER_BIN_ = __DIR__ . '/composer';
+
+is_file ( $_COMPOSER_BIN_ ) || $_COMPOSER_BIN_ .= '.phar';
+
 is_file ( $_COMPOSER_BIN_ ) || $_COMPOSER_BIN_ = exec ( 'which composer' );
 
 /**

@@ -5,6 +5,8 @@ Access composer and Symfony's bin/console tool remotely without terminal/SSH acc
 - PHP 5.3.2+
 - [composer](https://en.wikipedia.org/wiki/Composer_%28software%29) or [Symfony](https://en.wikipedia.org/wiki/Symfony)
 
+> If the composer is not registered globally then we expect to find it in the same directory as `symfony-shell.php` script having the name `composer` or `composer.phar`. 
+
 #### Installation
 Just copy (or `git clone`) the [symfony-shell.php](https://github.com/eugenmihailescu/symfony-shell/blob/master/symfony-shell.php) to your remote web document location (eg. /public_html/).
 
