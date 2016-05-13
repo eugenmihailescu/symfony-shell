@@ -69,6 +69,51 @@ Example:
 ```php
 run_symfony_console('cache:clear',array('no-warmup'=>null,'env'=>'prod'));
 ```
+##### register_hook
+
+This built-in function allows you to register your custom hook function that normally should call one of the above `run_composer` or `run_symfony_console` function although your hook function may do whatever you want.
+
+Syntax:
+
+```php
+/**
+ * Register a function to be executed on terminal
+ *
+ * @param callable $callback        	
+ * @param mixed $arguments
+ *        	A variable number of arguments that are dynamically detected
+ * @see run()
+ */
+function register_hook($callback, [$arguments])
+```
+
+Example:
+
+```php
+// composer_install is just a custom function (see the complete example below)
+register_hook('composer_install');
+```
+
+##### run
+
+This built-in funciton allow you to run the registered hook functions in their registration order.
+
+Syntax:
+
+```php
+/**
+ * Run the registered functions on terminal
+ *
+ * @see register_hook()
+ *
+ * @param bool $ignore_errors
+ *        	When true continue the execution by ignoring the hook execution exit codes, otherwise return
+ *        	
+ * @return bool Returns true if ALL the hooks succeeded, false otherwise
+ *        
+ */
+function run($ignore_errors = false) 
+```
 
 #### A complete extension example
 ```php
@@ -88,13 +133,19 @@ function composer_install() {
 	
 	// echo the composer install command output to the built-in HTML terminal
 	SymfonyShell\echoTerminaCmd ($output);
+	
+	// contains the command exec exit code
+	return $output[4];
 }
 
 // register the hook function
-SymfonyShell\register_function ( 'composer_install' );
+SymfonyShell\register_hook ( 'composer_install' );
+
+// run will exit on the first error
+$ignore_errors = false;
 
 // finally run the registered hook functions
-SymfonyShell\run ();
+SymfonyShell\run ($ignore_errors);
 
 ?>
 ```

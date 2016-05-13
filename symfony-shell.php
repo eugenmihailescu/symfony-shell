@@ -14,11 +14,20 @@ namespace SymfonyShell;
  */
 
 /**
+ * Sets the verbosity level.
+ * When true the set the verbosity on, otherwise off.
+ *
+ * @var bool $_VERBOSITY_
+ */
+$_VERBOSITY_ = true;
+
+/**
  * The path to composer.phar script file
  *
  * @var string $_COMPOSER_BIN_
  */
 $_COMPOSER_BIN_ = __DIR__ . '/composer.phar';
+is_file ( $_COMPOSER_BIN_ ) || $_COMPOSER_BIN_ = exec ( 'which composer' );
 
 /**
  * The path to the Symfony bin/console application script
@@ -76,15 +85,14 @@ function encode_utf8_html($string) {
  *        	The initial working directory for the command
  * @param array $env
  *        	An array of key=value with the environment variables for the command that will be run
- * @param bool $return_output
- *        	When false the output is echoed, otherwise is not.
  * @return $array Returns the array the lines of output for STDOUT, STDERR file descriptors:
  *         - the 0-key contains the shell command
  *         - the 1-key contains the STDOUT output lines
  *         - the 2-key contains the STDERR output lines.
  *         - the 3-key contains the total execution time in microseconds
+ *         - the 4-key contains the command exit code
  */
-function exec_cmd($cmd, $args = array(), $work_dir = __DIR__, $env = array(), $return_output = false) {
+function exec_cmd($cmd, $args = array(), $work_dir = __DIR__, $env = array()) {
 	$start = microtime ( true );
 	
 	// prepare the command arguments
@@ -129,7 +137,7 @@ function exec_cmd($cmd, $args = array(), $work_dir = __DIR__, $env = array(), $r
 		fclose ( $pipes [$index] );
 	}
 	
-	proc_close ( $p );
+	$output [4] = proc_close ( $p );
 	
 	$output [3] = microtime ( true ) - $start;
 	
@@ -148,13 +156,17 @@ function exec_cmd($cmd, $args = array(), $work_dir = __DIR__, $env = array(), $r
  * @return Returns the array the lines of output for STDOUT, STDERR file descriptors
  */
 function run_composer($composer_cmd, $composer_args = array(), $return_output = false) {
-	global $_COMPOSER_BIN_;
+	global $_COMPOSER_BIN_, $_VERBOSITY_;
+	
+	$_VERBOSITY_ && $composer_args ['verbose'] = null;
 	
 	$args = array (
 			'items' => $composer_args 
 	);
+	$home = getenv ( 'HOME' ) . '/.composer';
+	
 	$env = array (
-			'COMPOSER_HOME' => __DIR__ 
+			'COMPOSER_HOME' => is_dir ( $home ) ? $home : __DIR__ 
 	);
 	
 	return exec_cmd ( sprintf ( '%s %s', escapeshellcmd ( $_COMPOSER_BIN_ ), escapeshellcmd ( $composer_cmd ) ), $args, __DIR__, $env, $return_output );
@@ -172,7 +184,9 @@ function run_composer($composer_cmd, $composer_args = array(), $return_output = 
  * @return Returns the array the lines of output for STDOUT, STDERR file descriptors
  */
 function run_symfony_console($symfony_cmd, $symfony_args = array(), $return_output = false) {
-	global $_SYMFONY_CONSOLE_;
+	global $_SYMFONY_CONSOLE_, $_VERBOSITY_;
+	
+	$_VERBOSITY_ && $symfony_args ['verbose'] = null;
 	
 	$args = array (
 			'items' => $symfony_args 
@@ -192,34 +206,52 @@ function echoTerminaCmd($output) {
 	
 	echo sprintf ( '<div style="padding:1em;color:#fff">%s</div>', implode ( '<br>', $output [1] ) . implode ( '<br>', $output [2] ) ), PHP_EOL;
 	
-	echo sprintf ( '<div style="display:inline-block;border: 1px double white;padding: 5px;margin-bottom: 1em;"><span style="color:tomato;font-weight: bold">Exec time: </span><span>%s</span></div>', date ( 'H:i:s', $output [3] ) . '.' . ceil ( 1000 * ($output [3] - floor ( $output [3] )) ) ), PHP_EOL;
+	echo sprintf ( '<div style="display:inline-block;border: 1px double white;padding: 5px;margin-bottom: 1em;"><span style="color:tomato;font-weight: bold">%s (exec time: </span><span>%s</span>)</div>', $output [4] ? 'ERROR' : 'SUCCESS', date ( 'H:i:s', $output [3] ) . '.' . ceil ( 1000 * ($output [3] - floor ( $output [3] )) ) ), PHP_EOL;
 }
 
 /**
  * Register a function to be executed on terminal
  *
  * @param callable $callback        	
+ * @param mixed $arguments
+ *        	A variable number of arguments that are dynamically detected
  * @see run()
  */
-function register_function($callback) {
+function register_hook($callback) {
 	global $_REGISTERED_FUNCTIONS_;
 	
-	$_REGISTERED_FUNCTIONS_ [] = $callback;
+	$_REGISTERED_FUNCTIONS_ [] = func_get_args ();
 }
 
 /**
  * Run the registered functions on terminal
  *
- * @see register_function()
+ * @see register_hook()
+ *
+ * @param bool $ignore_errors
+ *        	When true continue the execution by ignoring the hook execution exit codes, otherwise return
+ *        	
+ * @return bool Returns true if ALL the hooks succeeded, false otherwise
+ *        
  */
-function run() {
+function run($ignore_errors = false) {
 	global $_REGISTERED_FUNCTIONS_, $_TERMINAL_WIDTH_, $_TERMINAL_HEIGHT_;
+	
+	$result = true;
 	
 	ob_start ();
 	?>
 
 <div style="overflow:auto;padding:0.5em;background-color: #000; color: #0f0;max-width:<?php echo $_TERMINAL_WIDTH_;?>em;max-height:<?php echo $_TERMINAL_HEIGHT_;?>em">
-<?php array_map ( 'call_user_func', $_REGISTERED_FUNCTIONS_ );?>	
+<?php
+	foreach ( $_REGISTERED_FUNCTIONS_ as $fn ) {
+		$result &= call_user_func_array ( $fn [0], array_slice ( $fn, 1 ) );
+		
+		// exit on error
+		if (! ($ignore_errors || $result))
+			break;
+	}
+	?>	
 </div>
 
 <?php
@@ -231,5 +263,7 @@ function run() {
 		echo $output;
 	?>
 <?php
+
+	return $result;
 }
 ?>
