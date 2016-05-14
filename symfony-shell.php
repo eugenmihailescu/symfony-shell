@@ -77,7 +77,19 @@ function encode_utf8_html($string) {
 	
 	return htmlspecialchars ( $string, ENT_COMPAT, 'UTF-8' );
 }
-
+function getHtmlColor2TerminalEscapeCode($color) {
+	$code = '';
+	switch ($color) {
+		case 'tomato' :
+			$code = '91';
+			break;
+		case '#fff' :
+			$code = '97';
+			break;
+	}
+	
+	return $code;
+}
 /**
  * Exec a PHP script via the PHP CLI environment
  *
@@ -315,9 +327,18 @@ function run($ignore_errors = false) {
 <?php
 	$output = ob_get_clean ();
 	
-	if (php_sapi_name () == "cli")
+	if (php_sapi_name () == "cli") {
+		// on *nix terminal use color escape codes
+		if (! stripos ( PHP_OS, 'win' )) {
+			$matches = null;
+			if (preg_match_all ( '/(<(div|span).+color\s*:\s*([^;\s\'"]+)).*<\/\2>/', $output, $matches ))
+				foreach ( $matches [0] as $index => $html ) {
+					$output = str_replace ( $html, chr ( 27 ) . '[1m' . chr ( 27 ) . '[' . getHtmlColor2TerminalEscapeCode ( $matches [3] [$index] ) . 'm' . $html . chr ( 27 ) . '[0m', $output );
+				}
+		}
+		
 		echo htmlspecialchars_decode ( strip_tags ( $output ) );
-	else
+	} else
 		echo $output;
 	?>
 <?php
