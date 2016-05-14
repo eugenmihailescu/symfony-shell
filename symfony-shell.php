@@ -30,7 +30,11 @@ $_COMPOSER_BIN_ = __DIR__ . '/composer';
 
 is_file ( $_COMPOSER_BIN_ ) || $_COMPOSER_BIN_ .= '.phar';
 
+is_file ( $_COMPOSER_BIN_ ) || $_COMPOSER_BIN_ = exec ( 'which composer.phar' );
+
 is_file ( $_COMPOSER_BIN_ ) || $_COMPOSER_BIN_ = exec ( 'which composer' );
+
+is_file ( $_COMPOSER_BIN_ ) || $_COMPOSER_BIN_ = install_composer ();
 
 /**
  * The path to the Symfony bin/console application script
@@ -146,6 +150,62 @@ function exec_cmd($cmd, $args = array(), $work_dir = __DIR__, $env = array()) {
 	
 	return $output;
 }
+/**
+ * Returns the COMPOSER_HOME environment variable
+ *
+ * @return array
+ */
+function get_composer_home() {
+	$home = getenv ( 'HOME' ) . '/.composer';
+	
+	is_dir ( $home ) || (isset ( $_REQUEST ['composer_home'] ) && $home = $_REQUEST ['composer_home']);
+	
+	return array (
+			'COMPOSER_HOME' => is_dir ( $home ) ? $home : __DIR__ 
+	);
+}
+
+/**
+ * Install the Composer
+ *
+ * @see https://getcomposer.org/download
+ *
+ * @return On success returns the composer.phar path, otherwise false
+ */
+function install_composer() {
+	$url = 'https://getcomposer.org/installer';
+	$composer_dir = __DIR__ . '/bin/';
+	$setup = $composer_dir . 'composer-setup.php';
+	
+	is_dir ( $composer_dir ) || mkdir ( $composer_dir );
+	
+	$output = array (
+			"cp $url $setup" 
+	);
+	
+	if (copy ( $url, $setup )) {
+		$output = exec_cmd ( $setup, array (
+				'install-dir' => $composer_dir 
+		), $composer_dir, get_composer_home () );
+		unlink ( $setup );
+		
+		if (! $output [4] && is_file ( $composer_dir . 'composer.phar' ))
+			return $composer_dir . 'composer.phar';
+	}
+	
+	$cmd_err = error_get_last ();
+	echoTerminaCmd ( array (
+			$output [0],
+			array (),
+			array (
+					sprintf ( '%s (%s)', $cmd_err ['message'], $cmd_err ['type'] ) 
+			),
+			0,
+			$cmd_err ['type'] 
+	) );
+	
+	return false;
+}
 
 /**
  * Execute a Composer command
@@ -166,15 +226,8 @@ function run_composer($composer_cmd, $composer_args = array(), $return_output = 
 	$args = array (
 			'items' => $composer_args 
 	);
-	$home = getenv ( 'HOME' ) . '/.composer';
 	
-	is_dir ( $home ) || (isset ( $_REQUEST ['composer_home'] ) && $home = $_REQUEST ['composer_home']);
-	
-	$env = array (
-			'COMPOSER_HOME' => is_dir ( $home ) ? $home : __DIR__ 
-	);
-	
-	return exec_cmd ( sprintf ( '%s %s', escapeshellcmd ( $_COMPOSER_BIN_ ), escapeshellcmd ( $composer_cmd ) ), $args, __DIR__, $env, $return_output );
+	return exec_cmd ( sprintf ( '%s %s', escapeshellcmd ( $_COMPOSER_BIN_ ), escapeshellcmd ( $composer_cmd ) ), $args, __DIR__, get_composer_home (), $return_output );
 }
 
 /**

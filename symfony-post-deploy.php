@@ -4,11 +4,15 @@ require_once 'symfony-shell.php';
 /**
  * Recursive copy a file or directory
  *
- * @param string $src        	
- * @param string $dst        	
+ * @param string $src
+ *        	The source file|folder
+ * @param string $dst
+ *        	The destination file|folder
+ * @param octal $mode
+ *        	The destination file|folder permission (octal mode)
  * @return bool Returns true on success, false otherwise
  */
-function _copy($src, $dst, $mode = 0770) {
+function _copy($src, $dst, $mode = 0755) {
 	$success = true;
 	
 	if (is_dir ( $src )) {
@@ -35,6 +39,48 @@ function _copy($src, $dst, $mode = 0770) {
 function composer_install() {
 	$output = SymfonyShell\run_composer ( 'install', array (
 			'optimize-autoloader' => null,
+			'no-interaction' => null 
+	) );
+	SymfonyShell\echoTerminaCmd ( $output );
+	
+	return ! $output [4]; // returns the cmd exec exit code
+}
+
+/**
+ * Installs the Composer required components
+ *
+ * @return bool Returns true on success, false otherwise
+ */
+function composer_update() {
+	$output = SymfonyShell\run_composer ( 'update', array (
+			'no-interaction' => null 
+	) );
+	SymfonyShell\echoTerminaCmd ( $output );
+	
+	return ! $output [4]; // returns the cmd exec exit code
+}
+
+/**
+ * Helper function that will diagnose the composer.json file
+ *
+ * @return boolean Returns true on success, false otherwise
+ */
+function composer_diagnose() {
+	$output = SymfonyShell\run_composer ( 'diagnose', array (
+			'no-interaction' => null 
+	) );
+	SymfonyShell\echoTerminaCmd ( $output );
+	
+	return ! $output [4]; // returns the cmd exec exit code
+}
+
+/**
+ * Helper function that will validate the composer.json file
+ *
+ * @return boolean Returns true on success, false otherwise
+ */
+function composer_validate() {
+	$output = SymfonyShell\run_composer ( 'validate', array (
 			'no-interaction' => null 
 	) );
 	SymfonyShell\echoTerminaCmd ( $output );
@@ -107,13 +153,11 @@ function symfony_assets_install($environment = 'prod', $symlink = false, $relati
 /**
  * This is a custom hook that has nothing to do with Composer/Symfony
  *
+ * @param string $src        	
+ * @param string $dst        	
  * @return bool Returns true on success, false otherwise
  */
-function copy_vendor_assets() {
-	$dir = '/vendor/bower-asset/';
-	$src = $dir;
-	$dst = '/web/bundles' . $dir;
-	
+function copy_vendor_assets($src, $dst) {
 	$result = false;
 	$start = microtime ( true );
 	
@@ -132,8 +176,7 @@ function copy_vendor_assets() {
 	};
 	
 	if (is_dir ( __DIR__ . $src )) {
-		$stat = stat ( __DIR__ . $src ); // get file info
-		if ($result = _copy ( __DIR__ . $src, __DIR__ . $dst, $stat ? $stat [2] : 0770 ))
+		if ($result = _copy ( __DIR__ . $src, __DIR__ . $dst ))
 			$echo ( sprintf ( 'Folder %s copied successfully to %s', $src, $dst ) );
 		else {
 			$sys_err = error_get_last ();
@@ -147,7 +190,8 @@ function copy_vendor_assets() {
 
 // register our custom hooks
 SymfonyShell\register_hook ( 'composer_install' ); // install the required dependencies as per composer.json
-SymfonyShell\register_hook ( 'copy_vendor_assets' ); // should be registered before `symfony_dump_assets` hook
+SymfonyShell\register_hook ( 'copy_vendor_assets', '/vendor/thomaspark', '/web/bundles/vendor/thomaspark' ); // should be registered before `symfony_dump_assets` hook
+SymfonyShell\register_hook ( 'copy_vendor_assets', '/vendor/fortawesome', '/web/bundles/vendor/fortawesome' ); // should be registered before `symfony_dump_assets` hook
 SymfonyShell\register_hook ( 'symfony_assets_install', 'prod', true ); // install the bundle assets to the default dir (default "web")
 SymfonyShell\register_hook ( 'symfony_dump_assets' ); // dump the assets to the public folder (eg. web)
 SymfonyShell\register_hook ( 'symfony_cache_clear' ); // clear the default (production) cache
