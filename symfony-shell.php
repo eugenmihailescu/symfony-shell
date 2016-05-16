@@ -14,6 +14,13 @@ namespace SymfonyShell;
  */
 
 /**
+ * True on *nix platforms, false on Windows
+ *
+ * @var bool $_IS_NIX_
+ */
+$_NIX_OS_ = ! stripos ( PHP_OS, 'win' );
+
+/**
  * Sets the verbosity level.
  * When true the set the verbosity on, otherwise off.
  *
@@ -30,9 +37,9 @@ $_COMPOSER_BIN_ = __DIR__ . '/composer';
 
 is_file ( $_COMPOSER_BIN_ ) || $_COMPOSER_BIN_ .= '.phar';
 
-is_file ( $_COMPOSER_BIN_ ) || $_COMPOSER_BIN_ = exec ( 'which composer.phar' );
+is_file ( $_COMPOSER_BIN_ ) || $_NIX_OS_ && $_COMPOSER_BIN_ = exec ( 'which composer.phar' );
 
-is_file ( $_COMPOSER_BIN_ ) || $_COMPOSER_BIN_ = exec ( 'which composer' );
+is_file ( $_COMPOSER_BIN_ ) || $_NIX_OS_ && $_COMPOSER_BIN_ = exec ( 'which composer' );
 
 is_file ( $_COMPOSER_BIN_ ) || $_COMPOSER_BIN_ = install_composer ();
 
@@ -239,7 +246,28 @@ function run_composer($composer_cmd, $composer_args = array(), $return_output = 
 			'items' => $composer_args 
 	);
 	
-	return exec_cmd ( sprintf ( '%s %s', escapeshellcmd ( $_COMPOSER_BIN_ ), escapeshellcmd ( $composer_cmd ) ), $args, __DIR__, get_composer_home (), $return_output );
+	/*
+	 * - the 0-key contains the shell command
+	 * - the 1-key contains the STDOUT output lines
+	 * - the 2-key contains the STDERR output lines.
+	 * - the 3-key contains the total execution time in microseconds
+	 * - the 4-key contains the command exit code
+	 */
+	
+	$cmd = sprintf ( '%s %s', escapeshellcmd ( $_COMPOSER_BIN_ ), escapeshellcmd ( $composer_cmd ) );
+	
+	if (! $_COMPOSER_BIN_)
+		return array (
+				$cmd,
+				array (),
+				array (
+						sprintf ( 'Composer binary not found. Make sure it is installed!' ) 
+				),
+				0,
+				2 
+		);
+	
+	return exec_cmd ( $cmd, $args, __DIR__, get_composer_home (), $return_output );
 }
 
 /**
@@ -305,14 +333,15 @@ function register_hook($callback) {
  *        
  */
 function run($ignore_errors = false) {
-	global $_REGISTERED_FUNCTIONS_, $_TERMINAL_WIDTH_, $_TERMINAL_HEIGHT_;
+	global $_NIX_OS_, $_REGISTERED_FUNCTIONS_, $_TERMINAL_WIDTH_, $_TERMINAL_HEIGHT_;
 	
 	$result = true;
 	
 	$filter_output = function ($output) {
+		global $_NIX_OS_;
 		if (php_sapi_name () == "cli") {
 			// on *nix terminal use color escape codes
-			if (! stripos ( PHP_OS, 'win' )) {
+			if ($_NIX_OS_) {
 				$matches = null;
 				if (preg_match_all ( '/(<(div|span).+color\s*:\s*([^;\s\'"]+)).*<\/\2>/', $output, $matches ))
 					foreach ( $matches [0] as $index => $html ) {
